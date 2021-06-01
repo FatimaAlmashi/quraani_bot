@@ -7,11 +7,11 @@ from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters,Callb
 from data import (surah_keyboard_ar, surah_list_ar, surah_list_en,
                  shaikh_keyboard_ar, shaikh_list_en, ar_surah_numbers,
                  get_exact_shaikh_name, get_server_num, shaikh_list,
-                 surah_list)
+                 surah_list, available_surah)
 
 SURAH_NAME, SHAIKH_NAME, BACK_TO_SURAH = range(3)
 CALLBACK = SURAH_NAME
-bot_timeout = 6000
+bot_timeout = 60000
 
 selected_surah = None
 selected_shaikh = None
@@ -92,18 +92,42 @@ def get_audio(update, context):
     server_num = get_server_num(selected_shaikh)
     shaikh_id = get_exact_shaikh_name(selected_shaikh)
 
+    print('surah_id = ', surah_id, ' , shaikh_id = ', shaikh_id)
+    if surah_id not in available_surah[shaikh_id]:
+        context.bot.sendMessage(chat_id, 'الملف الصوتي لهذه السورة غير متوفر 💔، الرجاء اختيار سورة أخرى 🤖')
+        selected_surah = None
+        selected_shaikh = None 
+        CALLBACK = SURAH_NAME
+        markup = ReplyKeyboardMarkup(surah_keyboard_ar, one_time_keyboard=True,resize_keyboard=True)
+        update.message.reply_text("اختر السورة من القائمة ",reply_markup=markup)
+        return CALLBACK
+
     URL = "https://"+server_num+".mp3quran.net/"+shaikh_id+"/"+surah_id+".mp3"
     try:
         r = requests.get(URL)
-    except:
-        print("Request Error !!!")
+        # print('responce.type = ', r.type)
+        # print('responce.size = ', r.size)
+    except requests.exceptions.RequestException as err:
+        print ("OOps: Something Else",err)
+    except requests.exceptions.HTTPError as errh:
+        print ("Http Error:",errh)
+    except requests.exceptions.ConnectionError as errc:
+        print ("Error Connecting:",errc)
+    except requests.exceptions.Timeout as errt:
+        print ("Timeout Error:",errt)  
+
 
     print('\nURL = ', URL , '\nrequest url = ', r.url)
+
+
+
     try:
         context.bot.sendAudio(chat_id=chat_id, audio=URL)
         print('\nsendAudio without errors :)', r.url)
     except:
         context.bot.sendMessage(chat_id, 'عفوا! لقد حصل خطأ أثناء الإرسال 💔🤖 الرجاء المحاولة مرة أخرى 👍')
+    
+
     selected_surah = None
     selected_shaikh = None 
     CALLBACK = SURAH_NAME
